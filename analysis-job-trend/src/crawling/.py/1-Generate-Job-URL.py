@@ -1,5 +1,3 @@
-# analysis-job-trend\src\crawling\1-Generate-Job-URL.py
-
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
@@ -15,95 +13,118 @@ import sys
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
-import config
+import config_general
 
-def create_driver():
-    """Khởi tạo Chrome Driver với các options."""
-    chrome_options = Options()
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-    chrome_options.add_argument("--disable-blink-features=AutomationControlled")
 
-    service = Service()
-    driver = webdriver.Chrome(service=service, options=chrome_options)
-    return driver
+class ChromeDriver:
+    def __init__(self):
+        opts = Options()
+        opts.add_argument("--no-sandbox")
+        opts.add_argument("--disable-dev-shm-usage")
+        opts.add_argument("--disable-blink-features=AutomationControlled")
+        
+        self.driver = webdriver.Chrome(service=Service(), options=opts)
+    
+    def get(self):
+        return self.driver
+    
+    def quit(self):
+        self.driver.quit()
 
-def crawl_job_links(driver, urls):
-    """Thực hiện crawl link bài đăng từ danh sách URL trang."""
-    data = []
-    job_id = 1
 
-    for url in urls:
-        print(f"Đang xử lý trang: {url}")
-        driver.get(url)
-        time.sleep(config.SLEEP_TIME)
-
+class JobLinkScraper:
+    def __init__(self, driver, wait_timeout=10, sleep_time=3):
+        self.driver = driver
+        self.wait_timeout = wait_timeout
+        self.sleep_time = sleep_time
+        self.job_counter = 1
+    
+    def scrape_page(self, url):
+        print(f"Scraping: {url}")
+        self.driver.get(url)
+        time.sleep(self.sleep_time)
+        
         try:
-            WebDriverWait(driver, config.WAIT_TIMEOUT).until(
+            WebDriverWait(self.driver, self.wait_timeout).until(
                 EC.presence_of_all_elements_located(
-                    (By.XPATH, config.JOB_POST_XPATH)
+                    (By.XPATH, config_general.JOB_POST_XPATH)
                 )
             )
-
-            posts = driver.find_elements(By.XPATH, config.JOB_POST_XPATH)
-
+            
+            posts = self.driver.find_elements(By.XPATH, config_general.JOB_POST_XPATH)
+            jobs = []
+            
             for post in posts:
                 href = post.get_attribute("href")
                 title = post.text.strip()
-
-                data.append({
-                    "ID": job_id,
+                
+                jobs.append({
+                    "ID": self.job_counter,
                     "title": title,
                     "link": href
                 })
-                job_id += 1
+                self.job_counter += 1
             
-            print(f" -> Tìm thấy {len(posts)} bài đăng.")
-
+            print(f"Found {len(posts)} jobs")
+            return jobs
+            
         except Exception as e:
-            print(f" -> Lỗi ở URL {url}: {e}")
+            print(f"Error on {url}: {e}")
+            return []
+    
+    def scrape_multiple(self, urls):
+        all_jobs = []
+        for url in urls:
+            jobs = self.scrape_page(url)
+            all_jobs.extend(jobs)
+        return all_jobs
 
-    return pd.DataFrame(data)
+
+def build_urls(base_url, num_pages):
+    return [base_url.format(page=i) for i in range(1, num_pages + 1)]
+
+
+def save_to_csv(data, output_dir, output_path):
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir, exist_ok=True)
+    
+    df = pd.DataFrame(data)
+    df.to_csv(output_path, index=False, encoding="utf-8-sig")
+    return df
+
 
 def main():
-    """Hàm thực thi chính."""
-    print("=== BẮT ĐẦU QUÁ TRÌNH CRAWL URL ===")
+    urls = build_urls(config_general.BASE_URL, config_general.NUM_PAGES_TO_CRAWL)
+    print(f"Pages to scrape: {len(urls)}")
     
-    # 1. Tạo danh sách URL dựa trên config
-    # range(1, x + 1) để chạy từ trang 1 đến trang x
-    urls = [config.BASE_URL.format(page=i) for i in range(1, config.NUM_PAGES_TO_CRAWL + 1)]
-    print(f"Tổng số trang cần quét: {len(urls)}")
-
-    # 2. Khởi tạo Driver và Crawl
-    driver = create_driver()
+    chrome = ChromeDriver()
+    scraper = JobLinkScraper(
+        chrome.get(),
+        wait_timeout=config_general.WAIT_TIMEOUT,
+        sleep_time=config_general.SLEEP_TIME
+    )
     
     try:
-        df_jobs = crawl_job_links(driver, urls)
-        print(f"\nTổng số bài đăng thu thập được: {len(df_jobs)}")
+        jobs = scraper.scrape_multiple(urls)
+        print(f"\nTotal jobs collected: {len(jobs)}")
         
-        # In thử 5 dòng đầu
-        if not df_jobs.empty:
-            print(df_jobs.head())
-
-        # 3. Lưu kết quả
-        # Tạo thư mục nếu chưa có
-        if not os.path.exists(config.JOB_LIST_DIR):
-            os.makedirs(config.JOB_LIST_DIR, exist_ok=True)
-            print(f"Đã tạo thư mục: {config.JOB_LIST_DIR}")
-
-        # Lưu file CSV
-        df_jobs.to_csv(config.JOB_LIST_FILE_PATH, index=False, encoding="utf-8-sig")
-        print(f"Đã lưu file thành công tại: {config.JOB_LIST_FILE_PATH}")
-
+        df = save_to_csv(
+            jobs,
+            config_general.JOB_LIST_DIR,
+            config_general.JOB_LIST_FILE_PATH
+        )
+        
+        if not df.empty:
+            print(df.head())
+        
+        print(f"Saved to: {config_general.JOB_LIST_FILE_PATH}")
+        
     except Exception as e:
-        print(f"Có lỗi nghiêm trọng xảy ra: {e}")
+        print(f"Critical error: {e}")
     
     finally:
-        # Luôn đóng trình duyệt dù chạy thành công hay thất bại
-        driver.quit()
-        print("=== ĐÃ ĐÓNG TRÌNH DUYỆT & KẾT THÚC ===")
+        chrome.quit()
+
 
 if __name__ == "__main__":
     main()
-
-# python src\crawling\1-Generate-Job-URL.py
