@@ -1,0 +1,17 @@
+# == Python 3.10.11 ==
+
+# crawling + scraping/requirements.txt
+selenium==4.31.0
+webdriver_manager
+ipykernel==6.29.5
+webdriver-manager
+fake_useragent
+undetected_chromedriver
+pandas==2.2.3
+numpy==2.2.4
+bs4
+tqdm==4.67.1
+requests==2.32.3
+beautifulsoup4==4.13.3
+
+# preprocessing/requirements.txt
