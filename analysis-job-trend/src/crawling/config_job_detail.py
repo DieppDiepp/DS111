@@ -5,12 +5,13 @@
 # 1. Các trường lấy 1 giá trị duy nhất (Single Text)
 SINGLE_FIELDS = {
     # --- HEADER SECTION ---
-    "job_title": "//h1[contains(@class, 'job-detail__info--title')]//a",
-    # 1. SALARY (Mức lương/Thu nhập)
+    "job_title": "//h1[contains(@class, 'job-detail__info--title')]",
+
     # Logic: Tìm vào khu vực chứa các section, lấy thẻ div con ĐẦU TIÊN [1], sau đó lấy value bên trong
-    "salary": "(//div[contains(@class,'job-detail__info--sections')]//div[contains(@class,'job-detail__info--section')])[1]//div[contains(@class,'job-detail__info--section-content-value')]",
-    "province": "(//div[contains(@class,'job-detail__info--sections')]//div[contains(@class,'job-detail__info--section')])[2]//div[contains(@class,'job-detail__info--section-content-value')]",
-    "experience_years": "(//div[contains(@class,'job-detail__info--sections')]//div[contains(@class,'job-detail__info--section')])[3]//div[contains(@class,'job-detail__info--section-content-value')]",
+    "salary": "//div[@id='header-job-info']//div[contains(@class,'job-detail__info--sections')]/div[contains(@class,'job-detail__info--section')][1]//div[contains(@class,'job-detail__info--section-content-value')]",
+    "province": "//div[@id='header-job-info']//div[contains(@class,'job-detail__info--sections')]/div[contains(@class,'job-detail__info--section')][2]//div[contains(@class,'job-detail__info--section-content-value')]",
+    "experience_years": "//div[@id='header-job-info']//div[contains(@class,'job-detail__info--sections')]/div[contains(@class,'job-detail__info--section')][3]//div[contains(@class,'job-detail__info--section-content-value')]",
+    
     "deadline": "//div[contains(@class,'job-detail__info--deadline-date')]",
 
     # --- MAIN CONTENT SECTION (Mô tả, Yêu cầu...) ---
