@@ -1,4 +1,7 @@
 # analysis-job-trend\src\crawling\config.py
+# File config tham số cho .py/1-Generate-Job-URL.py
+# File .ipynb/1-Generate-Job-URL.ipynb chỉ demo 1 page, không load config này
+
 import os
 
 # --- CẤU HÌNH ĐƯỜNG DẪN (PATHS) ---
@@ -19,10 +22,10 @@ JOB_LIST_FILE_PATH = os.path.join(JOB_LIST_DIR, JOB_LIST_FILE_NAME)
 BASE_URL = "https://www.topcv.vn/tim-viec-lam-cong-nghe-thong-tin-cr257?type_keyword=1&page={page}&category_family=r257"
 
 # Số lượng trang muốn crawl
-NUM_PAGES_TO_CRAWL = 2 
+NUM_PAGES_TO_CRAWL = 71 # 3527 jobs, 50 jobs/page
 
 # Thời gian chờ (giây)
-SLEEP_TIME = 3
+SLEEP_TIME = 8
 WAIT_TIMEOUT = 10
 
 # --- CẤU HÌNH SELECTOR (XPATH) ---
