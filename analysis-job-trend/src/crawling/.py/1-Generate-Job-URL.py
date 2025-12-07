@@ -10,10 +10,15 @@ from selenium.webdriver.support import expected_conditions as EC
 import time
 import pandas as pd
 import os
+import sys
 
-import config 
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+sys.path.append(parent_dir)
+import config
 
 def create_driver():
+    """Khởi tạo Chrome Driver với các options."""
     chrome_options = Options()
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
@@ -24,12 +29,14 @@ def create_driver():
     return driver
 
 def crawl_job_links(driver, urls):
+    """Thực hiện crawl link bài đăng từ danh sách URL trang."""
     data = []
     job_id = 1
 
     for url in urls:
+        print(f"Đang xử lý trang: {url}")
         driver.get(url)
-        time.sleep(config.SLEEP_TIME) # Sử dụng config
+        time.sleep(config.SLEEP_TIME)
 
         try:
             WebDriverWait(driver, config.WAIT_TIMEOUT).until(
@@ -50,34 +57,53 @@ def crawl_job_links(driver, urls):
                     "link": href
                 })
                 job_id += 1
+            
+            print(f" -> Tìm thấy {len(posts)} bài đăng.")
 
         except Exception as e:
-            print(f"Lỗi ở URL {url}: {e}")
+            print(f" -> Lỗi ở URL {url}: {e}")
 
     return pd.DataFrame(data)
 
-# --- MAIN EXECUTION ---
+def main():
+    """Hàm thực thi chính."""
+    print("=== BẮT ĐẦU QUÁ TRÌNH CRAWL URL ===")
+    
+    # 1. Tạo danh sách URL dựa trên config
+    # range(1, x + 1) để chạy từ trang 1 đến trang x
+    urls = [config.BASE_URL.format(page=i) for i in range(1, config.NUM_PAGES_TO_CRAWL + 1)]
+    print(f"Tổng số trang cần quét: {len(urls)}")
 
-# 1.1 Generate list of URLs to crawl
-# Sử dụng range(1, NUM_PAGES + 1) để lấy đúng số trang mong muốn
-urls = [config.BASE_URL.format(page=i) for i in range(1, config.NUM_PAGES_TO_CRAWL + 1)]
+    # 2. Khởi tạo Driver và Crawl
+    driver = create_driver()
+    
+    try:
+        df_jobs = crawl_job_links(driver, urls)
+        print(f"\nTổng số bài đăng thu thập được: {len(df_jobs)}")
+        
+        # In thử 5 dòng đầu
+        if not df_jobs.empty:
+            print(df_jobs.head())
 
-# 1.2 Start crawling
-driver = create_driver()
+        # 3. Lưu kết quả
+        # Tạo thư mục nếu chưa có
+        if not os.path.exists(config.JOB_LIST_DIR):
+            os.makedirs(config.JOB_LIST_DIR, exist_ok=True)
+            print(f"Đã tạo thư mục: {config.JOB_LIST_DIR}")
 
-print(f"Bắt đầu crawl {len(urls)} trang...")
-df_jobs = crawl_job_links(driver, urls)
-driver.quit() # Nên đóng driver sau khi xong
+        # Lưu file CSV
+        df_jobs.to_csv(config.JOB_LIST_FILE_PATH, index=False, encoding="utf-8-sig")
+        print(f"Đã lưu file thành công tại: {config.JOB_LIST_FILE_PATH}")
 
-print(df_jobs.head())
-print(f"Tổng số bài đăng thu thập được: {len(df_jobs)}")
+    except Exception as e:
+        print(f"Có lỗi nghiêm trọng xảy ra: {e}")
+    
+    finally:
+        # Luôn đóng trình duyệt dù chạy thành công hay thất bại
+        driver.quit()
+        print("=== ĐÃ ĐÓNG TRÌNH DUYỆT & KẾT THÚC ===")
 
-# 1.3 Save results to CSV using Config paths
-# Tạo thư mục nếu chưa tồn tại (sử dụng đường dẫn từ config)
-if not os.path.exists(config.JOB_LIST_DIR):
-    os.makedirs(config.JOB_LIST_DIR, exist_ok=True)
+if __name__ == "__main__":
+    main()
 
-# Lưu file
-df_jobs.to_csv(config.JOB_LIST_FILE_PATH, index=False, encoding="utf-8-sig")
-
-print(f"Đã lưu file vào: {config.JOB_LIST_FILE_PATH}")
+# python src\crawling\1-Generate-Job-URL.py
