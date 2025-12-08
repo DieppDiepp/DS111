@@ -1,3 +1,4 @@
+from logging import config
 import os
 import sys
 import time
@@ -5,7 +6,7 @@ import json
 import random
 import socket
 import subprocess
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pandas as pd
 from tqdm import tqdm
@@ -83,6 +84,36 @@ class JobDetailCrawler:
         except:
             return "Null"
     
+    def get_config_strategy(self, url):
+        """
+        Xác định layout dựa trên URL và Elements có trên trang.
+        """
+        # 1. Nếu là link thường
+        if "/brand/" not in url:
+            return config_job_detail.STANDARD
+        
+        # 2. Nếu là link Brand, cần check kỹ HTML để xem là Loại 1 hay Loại 2
+        try:
+            # Check nhanh xem có element đặc trưng của Brand Type 1 không
+            # Dùng find_elements để không bị exception nếu không thấy (trả về list rỗng)
+            if len(self.driver.find_elements(By.CLASS_NAME, "premium-job-basic-information")) > 0:
+                print("   -> Layout: BRAND TYPE 1 (Premium)")
+                return config_job_detail.BRAND
+            
+            # Check xem có element đặc trưng của Brand Type 2 không
+            elif len(self.driver.find_elements(By.CLASS_NAME, "box-header")) > 0:
+                print("   -> Layout: BRAND TYPE 2 (Box Info)")
+                return config_job_detail.BRAND_V2
+            
+            else:
+                # Fallback về Standard nếu không nhận diện được (hiếm gặp)
+                print("   -> Layout: Unknown Brand -> Fallback STANDARD")
+                return config_job_detail.STANDARD
+                
+        except Exception as e:
+            print(f"   -> Error detecting layout: {e}")
+            return config_job_detail.STANDARD
+    
     def extract_attribute(self, xpath, attr):
         try:
             element = self.driver.find_element(By.XPATH, xpath)
@@ -95,42 +126,59 @@ class JobDetailCrawler:
             self.driver.get(url)
 
             wait = WebDriverWait(self.driver, self.timeout)
+            config = self.get_config_strategy(url)
             
             # Chờ Title load
             wait.until(EC.presence_of_element_located(
-                (By.XPATH, config_job_detail.SINGLE_FIELDS['job_title'])
+                (By.XPATH, config["SINGLE_FIELDS"]['job_title'])
             ))
 
-            # Chờ Header Sections load (Nơi chứa Lương/Địa điểm/Kinh nghiệm)
-            # Logic: Phải tìm thấy cái hộp chứa 3 thông tin này thì mới cào, tránh bị index sai
-            header_section_xpath = "//div[contains(@class, 'job-detail__info--sections')]"
-            wait.until(EC.presence_of_element_located((By.XPATH, header_section_xpath)))
-            
-            time.sleep(1)
+            time.sleep(2)
             
             data = {}
             
-            for key, xpath in config_job_detail.SINGLE_FIELDS.items():
+            # Cào dữ liệu theo Config đã chọn
+            for key, xpath in config["SINGLE_FIELDS"].items():
                 data[key] = self.extract_single_field(xpath)
             
-            for key, xpath in config_job_detail.LIST_FIELDS.items():
+            for key, xpath in config["LIST_FIELDS"].items():
                 data[key] = self.extract_list_field(xpath)
             
-            for key, (xpath, attr) in config_job_detail.ATTRIBUTE_FIELDS.items():
+            for key, (xpath, attr) in config["ATTRIBUTE_FIELDS"].items():
                 data[key] = self.extract_attribute(xpath, attr)
-            
+
+            # XỬ LÝ LOGIC RIÊNG CHO BRAND V2
+            # Nếu là Brand V2, deadline đang là con số (ví dụ: "23")
+            # Ta cần convert: Ngày hiện tại + 23 ngày = "dd/mm/yyyy"
+            if config == config_job_detail.BRAND_V2 and data.get('deadline') != "Null":
+                try:
+                    days_left = int(data['deadline']) # Chuyển chuỗi "23" thành số 23
+                    future_date = datetime.now() + timedelta(days=days_left)
+                    data['deadline'] = future_date.strftime("%d/%m/%Y") # Format lại thành ngày tháng
+                except ValueError:
+                    # Nếu không phải số (ví dụ đã hết hạn hoặc text lạ), giữ nguyên hoặc để Null
+                    pass
+
+            # Metadata
             data['url'] = url
             data['date_crawl'] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+
+            # Gắn nhãn layout để sau này dễ debug
+            if config == config_job_detail.BRAND:
+                data['layout_type'] = 'brand_v1'
+            elif config == config_job_detail.BRAND_V2:
+                data['layout_type'] = 'brand_v2'
+            else:
+                data['layout_type'] = 'standard'
             
             return data, None
             
         except TimeoutException:
-            print(f"Timeout: {url}")
-            return None, url
+            print(f"Timeout waiting for elements: {url}")
+            return None, "Timeout"
         except Exception as e:
             print(f"Error crawling {url}: {str(e)}")
-            return None, url
-
+            return None, str(e)
 
 def load_existing_data(output_path):
     if os.path.exists(output_path):
@@ -160,7 +208,7 @@ def main():
         return
     
     df = pd.read_csv(input_csv, encoding="utf-8-sig")
-    df = df[1:22]  # Test mode: process only 2 rows
+    df = df[94:98]  # Test mode: process only 2 rows
     
     chrome = ChromeDebugger()
     chrome.start()
