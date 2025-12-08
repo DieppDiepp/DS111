@@ -58,7 +58,9 @@ class ChromeDebugger:
         while not self.is_running():
             time.sleep(0.5)
         print("Chrome ready")
-    
+
+        time.sleep(60) # Wait to login google account if needed
+
     def connect(self):
         opts = Options()
         opts.add_experimental_option("debuggerAddress", f"localhost:{self.port}")
