@@ -42,3 +42,7 @@ CHROME_PATH = r'C:\Program Files\Google\Chrome\Application\chrome.exe'
 CHROME_DEBUG_PORT = 8797
 CHROME_PROFILE = r'C:\Users\PC\.cache\selenium\chromedriver\win64\142.0.7444.175\localhost'
 
+# Dùng để chạy trên nhiều VPS, mỗi máy chạy 1 khoảng
+# Để None nếu muốn chạy toàn bộ file
+DATA_START_INDEX = 0   # Bắt đầu từ dòng này
+DATA_END_INDEX = 200     # Kết thúc trước dòng này (giống slice của Python)
