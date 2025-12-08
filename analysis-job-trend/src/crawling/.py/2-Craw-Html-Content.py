@@ -121,9 +121,46 @@ class JobDetailCrawler:
         except:
             return "Null"
     
+    def wait_for_cloudflare(self):
+        """
+        Kiểm tra xem có bị Cloudflare chặn không.
+        Nếu có: Tạm dừng vòng lặp, phát âm thanh (beep) và chờ người dùng xử lý thủ công trên trình duyệt.
+        """
+        while True:
+            try:
+                # Dấu hiệu nhận biết Cloudflare: Title web đổi thành "Just a moment..."
+                page_title = self.driver.title
+                
+                # Hoặc kiểm tra text trong body nếu title chưa kịp đổi
+                # page_source = self.driver.page_source (cẩn thận dùng cái này có thể nặng)
+                
+                if "Just a moment" in page_title or "Attention Required" in page_title:
+                    print("\n" + "="*50)
+                    print("PHÁT HIỆN CLOUDFLARE! ĐANG TẠM DỪNG...")
+                    print("Vui lòng mở trình duyệt và tick vào ô xác thực (Verify you are human).")
+                    print("Code sẽ tự động chạy tiếp sau khi bạn vượt qua.")
+                    print("="*50 + "\n")
+                    
+                    # Phát tiếng kêu 'beep' để báo hiệu (chỉ chạy trên Windows)
+                    try:
+                        import winsound
+                        winsound.Beep(1000, 500) # Tần số 1000Hz, 0.5 giây
+                    except:
+                        pass # Bỏ qua nếu không phải Windows hoặc lỗi âm thanh
+
+                    # Chờ 30 giây rồi check lại
+                    time.sleep(30)
+                else:
+                    # Nếu tiêu đề bình thường -> Thoát vòng lặp, cho phép chạy tiếp
+                    break
+            except Exception:
+                # Nếu driver lỗi lúc check (ví dụ mạng rớt), cứ break để code chính xử lý ngoại lệ
+                break
+            
     def crawl(self, url):
         try:
             self.driver.get(url)
+            self.wait_for_cloudflare()
 
             wait = WebDriverWait(self.driver, self.timeout)
             config = self.get_config_strategy(url)
@@ -207,8 +244,27 @@ def main():
         print(f"Input file not found: {input_csv}")
         return
     
+    # Đọc dữ liệu gốc
     df = pd.read_csv(input_csv, encoding="utf-8-sig")
-    df = df[94:98]  # Test mode: process only 2 rows
+    total_jobs_original = len(df)
+
+    # Áp dụng Slice từ Config (Phân chia dữ liệu cho VPS)
+    start_idx = getattr(config_general, 'DATA_START_INDEX', 0)
+    end_idx = getattr(config_general, 'DATA_END_INDEX', None)  # Mặc định là None (lấy hết)
+
+    # Nếu trong config để None thì Python hiểu là lấy hết
+    if start_idx is None: start_idx = 0
+    
+    # Cắt DataFrame
+    df = df[start_idx:end_idx]
+    
+    # Reset index để log in ra số thứ tự đẹp (tùy chọn)
+    # df.reset_index(drop=True, inplace=True) 
+
+    print(f"Data Partitioning Configured:")
+    print(f"   - Original Total: {total_jobs_original}")
+    print(f"   - Processing Range: [{start_idx} -> {end_idx if end_idx else 'End'}]")
+    print(f"   - Jobs to process on this VPS: {len(df)}")
     
     chrome = ChromeDebugger()
     chrome.start()
