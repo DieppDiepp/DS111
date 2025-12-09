@@ -41,6 +41,8 @@ JOB_POST_XPATH = '//h3[contains(@class,"title")]//a[@href]'
 CHROME_PATH = r'C:\Program Files\Google\Chrome\Application\chrome.exe'
 CHROME_DEBUG_PORT = 8797
 CHROME_PROFILE = r'C:\Users\PC\.wdm\drivers\chromedriver\win64\142.0.7444.175\chromedriver-win32\localhost'
+# Another path in another VPS 
+# C:\Users\Administrator\.wdm\drivers\chromedriver\win64\137.0.7151.119\chromedriver-win32\localhost
 
 # Dùng để chạy trên nhiều VPS, mỗi máy chạy 1 khoảng
 # Để None nếu muốn chạy toàn bộ file
