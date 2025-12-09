@@ -58,7 +58,7 @@ class ChromeDebugger:
         while not self.is_running():
             time.sleep(0.5)
         print("Chrome ready")
-        
+
     def connect(self):
         opts = Options()
         opts.add_experimental_option("debuggerAddress", f"localhost:{self.port}")
@@ -156,7 +156,27 @@ class JobDetailCrawler:
             except Exception:
                 # Nếu driver lỗi lúc check (ví dụ mạng rớt), cứ break để code chính xử lý ngoại lệ
                 break
+    
+    def expand_full_content(self):
+        """
+        Kiểm tra và click nút 'Xem đầy đủ mô tả công việc' nếu tồn tại.
+        """
+        try:
+            # XPath trỏ vào nút button nằm trong div class 'content-preview__toggle'
+            expand_btn_xpath = "//div[contains(@class, 'content-preview__toggle')]//button"
             
+            # Dùng find_elements để kiểm tra an toàn (trả về list rỗng nếu ko có, ko gây lỗi)
+            buttons = self.driver.find_elements(By.XPATH, expand_btn_xpath)
+            
+            if buttons:
+                # Dùng Javascript Executor để click (tránh bị che bởi quảng cáo/header)
+                self.driver.execute_script("arguments[0].click();", buttons[0])
+                time.sleep(1)
+
+        except Exception as e:
+            # Nếu lỗi click thì bỏ qua, in warning nhẹ
+            print(f"   -> Warning: Could not expand content. {e}")
+
     def crawl(self, url):
         try:
             self.driver.get(url)
@@ -170,6 +190,9 @@ class JobDetailCrawler:
                 (By.XPATH, config["SINGLE_FIELDS"]['job_title'])
             ))
 
+            # Phải gọi sau khi trang đã load xong Title, và TRƯỚC KHI bắt đầu cào data
+            self.expand_full_content()
+            
             time.sleep(2)
             
             data = {}
