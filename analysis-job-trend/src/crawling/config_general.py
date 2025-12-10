@@ -46,5 +46,5 @@ CHROME_PROFILE = r'C:\Users\PC\.wdm\drivers\chromedriver\win64\142.0.7444.175\ch
 
 # Dùng để chạy trên nhiều VPS, mỗi máy chạy 1 khoảng
 # Để None nếu muốn chạy toàn bộ file
-DATA_START_INDEX = 288   # Bắt đầu từ dòng này
-DATA_END_INDEX = 291     # Kết thúc trước dòng này (giống slice của Python)
+DATA_START_INDEX = 1000   # Bắt đầu từ dòng này
+DATA_END_INDEX = 2000     # Kết thúc trước dòng này (giống slice của Python)
