@@ -6,7 +6,6 @@ __pycache__/
 #Kaggle
 kaggle/
 #data
-data/
 
 #Model
 checkpoints/*.pth
